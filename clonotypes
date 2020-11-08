@@ -47,3 +47,4 @@ def takeTopAA_fr(inFile,outFile,N=200,freq_or_count="freq"):
                 outData.write("\n"+str(float(temp[0])/total))
                 outData.write("\t"+str(line))
             return "good"
+takeTopAA_fr(some_input_clonotype_table, some_output_name, 1000)
