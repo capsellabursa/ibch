@@ -1,0 +1,49 @@
+def takeTopAA_fr(inFile,outFile,N=200,freq_or_count="freq"):
+    with open(inFile,"r") as inData:
+        data=inData.readlines()
+    
+    if not data[0].startswith("count"):
+        print("proplems with file "+str(inFile))
+        return 0
+    
+    dataAA={}
+    total=0.0
+    for line in data[1:]:
+        temp=line.split("\t")
+        total+=float(temp[0])
+        if temp[3] not in dataAA:
+            dataAA[temp[3]]=float(temp[0])
+        else:
+            dataAA[temp[3]]+=float(temp[0])
+    
+    
+    groupedData={}
+    groups=set()
+    shuffledOut=[]
+    
+    for aa in dataAA:
+        temp=[aa,dataAA[aa]]
+        if int(dataAA[aa]) not in groupedData:
+            groupedData[int(dataAA[aa])]=[]
+            groups.add(int(dataAA[aa]))
+        groupedData[int(dataAA[aa])].append("\t".join([str(dataAA[aa]),
+                                                       str(aa)]))
+    
+    groups=sorted(list(groups),reverse=True)
+    for gruop in groups:
+        np.random.shuffle(groupedData[gruop])
+        shuffledOut=shuffledOut+groupedData[gruop]
+    #return shuffledOut,groupedData,groups
+    #print(shuffledOut)
+    with open(outFile,"w") as outData:
+        outData.write("freq\tcount\tcdr3_aa")
+
+        if len(shuffledOut)<N:
+            print("problem with "+str(inFile))
+            return "bad"
+        else:
+            for line in shuffledOut[:N]:
+                temp=line.split("\t")
+                outData.write("\n"+str(float(temp[0])/total))
+                outData.write("\t"+str(line))
+            return "good"
