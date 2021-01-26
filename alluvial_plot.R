@@ -2,7 +2,6 @@ library(RColorBrewer)
 library(ggalluvial)
 library(reshape2)
 library(dplyr)
-library(data.table)
 
 
 # Read metadata
@@ -26,15 +25,17 @@ param = args[2]
 metadata = read.table(fn, header = T)
 
 mode = param
+#mode = "CDR3_V"
 
 #metadata = read.table("/home/eshnayder/TCR/TCR_2_points/not_downsample/top1000nc/metadata.txt", header = T)
 
 ## Grouping metadata
 groups = as.data.frame(metadata %>% group_by(donor, cell_type) %>% summarise(n = n()))
 filtered = subset(groups, n > 1)
-filtered = merge(filtered, data, by = "donor", all = F)
+filtered = inner_join(filtered, metadata, by = "donor", all = F, copy = T)
 
 ## isolation names, cell_types and time points
+
 cell_types = unique(groups$cell_type)
 name = unique(filtered$donor)
 time_points = as.numeric(unique(filtered$time_point))
@@ -44,29 +45,28 @@ time_points = as.numeric(unique(filtered$time_point))
 # cell - from "cell_type" column
 # mode - include or not V-segment. mode = "CDR3_V" - include V-segment
 
-clonotypes_tables = function(name, cell, mode){
-  sub = subset(metadata, metadata$donor == as.character(name))
-  sub =  subset(sub, sub$cell_type == as.character(cell))
+clonotypes_tables = function(name, cell, mode, meta){
+  sub = subset(meta, donor == as.character(name))
+  sub =  subset(sub, cell_type == as.character(cell))
   if (nrow(sub) > 1){
     sub = sub[order(sub$time_point), ]
   
     if (file.exists(paste(getwd(), sub$file_name[1], sep="/")) & file.exists(paste(getwd(), sub$file_name[2], sep="/"))){
-      point1 = read.table(sub$file_name[1], header = T)
+      point1 = read.table(sub$file_name[1], header = T, sep = "\t")
       #cat("check1")
-      point2 = read.table(sub$file_name[2], header = T)
-      
+      point2 = read.table(sub$file_name[2], header = T, sep = "\t")
     
       if (nrow(point1) >= 1000 & nrow(point2) >= 1000){
         #common.clonotype = merge(point1[1:1000,], point2[1:1000,], by = c("cdr3aa", "v"))
         if (mode == "CDR3_V"){
-          common.clonotype = merge(point1, point2, by = c("cdr3aa", "v"))
+          #common.clonotype = merge(point1, point2, by = c("cdr3aa", "v"))
           
-          #common.clonotype = inner_join(point1[,c(1,2,4,5)], point2[,c(1,2,4,5)], by = c("cdr3aa", "v"))
+          common.clonotype = inner_join(point1, point2, by = c("cdr3aa", "v"), copy = T)
           common.clonotype$clon = paste(common.clonotype$cdr3aa, common.clonotype$v, sep = "~")
         }
-        else{
-          common.clonotype = merge(point1, point2, by = c("cdr3aa"))
-          #common.clonotype = inner_join(point1[,c(1,2,4)], point2[,c(1,2,4)], by = c("cdr3aa"))
+        else if(mode == "CDR3"){
+          #common.clonotype = merge(point1, point2, by = c("cdr3aa"))
+          common.clonotype = inner_join(point1, point2, by = c("cdr3aa"), copy = T)
           common.clonotype$clon = common.clonotype$cdr3aa
         }
         common.clonotype = common.clonotype[,c("clon", "freq.x", "freq.y")]
@@ -104,8 +104,8 @@ if (any(is.na(time_points))){
 }else{
   for (i in 1:length(name)){
     for (j in 1:length(cell_types)){
-      tab = clonotypes_tables(name[i], cell_types[j], mode)
-      cat(name[i])
+      tab = clonotypes_tables(name[i], cell_types[j], mode, metadata)
+      #cat(name[i])
       if (is.data.frame(tab) ){
         tab$Clonotypes[which(duplicated(tab$Clonotypes))] = paste(tab$Clonotypes[which(duplicated(tab$Clonotypes))], which(duplicated(tab$Clonotypes)), sep = "_")
         flow_chart(tab, name[i], cell_types[j])
@@ -113,4 +113,3 @@ if (any(is.na(time_points))){
     }
   }
 }
-
