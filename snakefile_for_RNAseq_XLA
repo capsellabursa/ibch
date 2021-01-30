@@ -1,0 +1,56 @@
+samples = 'Eg_Treg_S71 Ig_Treg_S68 Ma_mature_N726-S513_S1 ML_Treg_S66 RA_Treg_S67 Ve_Treg_S70 Za_Treg_S69 PS_Treg_S72'
+
+rule all:
+    input:
+        expand('/home/eshnayder/test_rnaseq/row_data/gtf/{sample}.gtf', sample=samples.split(' ')),
+        #"/home/eshnayder/test_rnaseq/row_data/gtf/{sample}.gtf"
+
+rule align_hisat:
+    input:
+        fq1="/home/eshnayder/shared-with-me/raw_data/{sample}_R1_001.fastq.gz",
+        fq2="/home/eshnayder/shared-with-me/raw_data/{sample}_R2_001.fastq.gz",
+        splicesite="splice_sites.txt"
+    output: "/home/eshnayder/test_rnaseq/row_data/sam/{sample}.sam"
+    threads: 24
+    shell:
+        "hisat2 -p {threads} -x /home/eshnayder/test_rnaseq/row_data/Homo_sapiens_hg38 " 
+        "--known-splicesite-infile {input.splicesite} "
+        "-1 {input.fq1} -2 {input.fq2} "	
+        "-S {output} "
+        
+
+rule samtools_sort:
+    input:
+        "/home/eshnayder/test_rnaseq/row_data/sam/{sample}.sam"
+    output:
+        "/home/eshnayder/test_rnaseq/row_data/bam/{sample}.bam"
+    threads: 24
+    shell:
+        "samtools view -@ {threads} -Sb {input}|samtools sort -@ {threads} - > {output}"
+        
+rule bamtools_sort:
+    input:
+        "/home/eshnayder/test_rnaseq/row_data/bam/{sample}.bam"
+    output:
+        "/home/eshnayder/test_rnaseq/row_data/bam/{sample}_filtered.bam"
+    threads: 24
+    shell:
+        "bamtools filter -in {input} -tag 'NH:<16'|samtools sort -@ {threads} - > {output} "
+
+        
+rule samtools_index:
+    input:
+        "/home/eshnayder/test_rnaseq/row_data/bam/{sample}_filtered.bam"
+    output:
+        "/home/eshnayder/test_rnaseq/row_data/bam/{sample}_filtered.bam.bai"
+    shell:
+        "samtools index {input}"
+        
+rule strintie_gtf:
+    input:
+        "/home/eshnayder/test_rnaseq/row_data/bam/{sample}_filtered.bam"
+    output:
+        "/home/eshnayder/test_rnaseq/row_data/gtf/{sample}.gtf"
+    shell:
+        "stringtie {input} -o {output} -G Homo_sapiens.GRCh38.98.chr.gtf"
+        
